@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock, Paper, Scissors Game</title>
+</head>
+<body>
+    <div>Rock, Paper, Scissors Game</div>
+    <div>Choose: Rock, Paper, or Scissors</div>
+    <button type="button" onclick="init()">Start Game</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <div id="countdown"></div>
+    <div id="result"></div>
+    <div id="score">Score: Player 0 - Computer 0</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/PZMKBv0KM/";
+
+        let model, webcam, labelContainer, maxPredictions;
+        let playerScore = 0;
+        let computerScore = 0;
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true;
+            webcam = new tmImage.Webcam(200, 200, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(countdown);
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function countdown() {
+            const countdownElement = document.getElementById("countdown");
+            countdownElement.innerHTML = "3";
+            await sleep(1000);
+            countdownElement.innerHTML = "2";
+            await sleep(1000);
+            countdownElement.innerHTML = "1";
+            await sleep(1000);
+            countdownElement.innerHTML = "Rock, Paper, Scissors!";
+            await sleep(500);
+            countdownElement.style.display = "none";
+            window.requestAnimationFrame(loop);
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className;
+                const probability = prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = `${className}: ${probability}`;
+            }
+            const playerChoice = labelContainer.childNodes[0].textContent.split(":")[0].trim();
+            const computerChoice = getRandomChoice();
+            const result = getGameResult(playerChoice, computerChoice);
+            document.getElementById("result").innerHTML = `Player chose ${playerChoice}, Computer chose ${computerChoice}. ${result}`;
+            updateScore(result);
+        }
+
+        function getRandomChoice() {
+            const choices = ["Rock", "Paper", "Scissors"];
+            const randomIndex = Math.floor(Math.random() * choices.length);
+            return choices[randomIndex];
+        }
+
+        function getGameResult(playerChoice, computerChoice) {
+            if (playerChoice === computerChoice) {
+                return "It's a tie!";
+            }
+            if (
+                (playerChoice === "Rock" && computerChoice === "Scissors") ||
+                (playerChoice === "Paper" && computerChoice === "Rock") ||
+                (playerChoice === "Scissors" && computerChoice === "Paper")
+            ) {
+                return "Player wins!";
+            }
+            return "Computer wins!";
+        }
+
+        function updateScore(result) {
+            if (result.includes("Player wins")) {
+                playerScore++;
+            } else if (result.includes("Computer wins")) {
+                computerScore++;
+            }
+            document.getElementById("score").innerHTML = `Score: Player ${playerScore} - Computer ${computerScore}`;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
